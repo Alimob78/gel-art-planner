@@ -1,0 +1,583 @@
+<title>Gel Art Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Layout: two columns. Left holds the pattern editor and prep settings; right holds the predicted gel and the plan tables. Lab-bench neutrals with a teal accent. */
+:root{
+  --bg:#e9eeee; --panel:#fbfcfc; --ink:#14201f; --muted:#546563; --line:#cfd8d7; --field:#f1f5f4;
+  --accent:#0e6b66; --accent-ink:#ffffff; --warn:#8a4a00; --warnbg:#fff1dd; --ok:#17734f; --soft:#e2ecea;
+  --sans:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e1514; --panel:#151e1d; --ink:#e6eeec; --muted:#93a5a2; --line:#27332f; --field:#101817;
+    --accent:#5fd0c4; --accent-ink:#06201d; --warn:#f0b266; --warnbg:#2b2112; --ok:#6fd6a6; --soft:#1b2826;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e1514; --panel:#151e1d; --ink:#e6eeec; --muted:#93a5a2; --line:#27332f; --field:#101817;
+  --accent:#5fd0c4; --accent-ink:#06201d; --warn:#f0b266; --warnbg:#2b2112; --ok:#6fd6a6; --soft:#1b2826;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.45;padding-inline:16px;padding-block:22px 48px}
+.app{max-width:1240px;margin:0 auto}
+h1{font-size:28px;line-height:1.12;margin:0 0 6px;font-weight:700;letter-spacing:-0.01em;text-wrap:balance}
+.sub{margin:0 0 20px;color:var(--muted);max-width:70ch}
+h2{font-size:15px;margin:0 0 12px;font-weight:700}
+h3{font-size:13px;margin:16px 0 8px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.grid{display:grid;grid-template-columns:minmax(0,370px) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:900px){.grid{grid-template-columns:minmax(0,1fr)}}
+.stack{display:flex;flex-direction:column;gap:16px;min-width:0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 14px 16px;min-width:0}
+.f{display:flex;flex-direction:column;gap:4px;margin-bottom:10px;min-width:0}
+.f label,.lbl{font-size:13px;color:var(--muted)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+select,input[type=number]{font:inherit;font-family:var(--mono);font-size:13.5px;color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:6px;padding:7px 8px;width:100%;min-width:0}
+select{font-family:var(--sans)}
+input[type=range]{width:100%;accent-color:var(--accent)}
+input[type=file]{font:inherit;font-size:13px;color:var(--muted);max-width:100%}
+.rng{display:flex;gap:10px;align-items:center}
+.rng output{font-family:var(--mono);font-size:13px;min-width:2.4ch;text-align:right}
+.chk{display:flex;gap:8px;align-items:center;font-size:14px;margin:2px 0 8px}
+button{font:inherit;font-size:13.5px;border-radius:6px;border:1px solid var(--line);background:var(--field);color:var(--ink);padding:6px 10px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:500}
+:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.btns{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.drop{border:1.5px dashed var(--line);border-radius:8px;padding:12px;background:var(--field);margin-bottom:10px}
+.drop.over{border-color:var(--accent);background:var(--soft)}
+.drop p{margin:0 0 8px;font-size:13px;color:var(--muted)}
+.cells{display:grid;gap:3px;grid-template-columns:repeat(var(--cols),minmax(0,1fr));max-width:calc(var(--cols) * 34px);touch-action:none;user-select:none;-webkit-user-select:none;margin-top:6px}
+.cell{aspect-ratio:1;min-width:0;padding:0;border-radius:3px;border:1px solid var(--line);background:var(--field)}
+.cell[aria-pressed="true"]{background:var(--accent);border-color:var(--accent)}
+.hint{font-size:12.5px;color:var(--muted);margin:6px 0 0}
+.gelwrap{overflow-x:auto;border-radius:8px;border:1px solid var(--line);background:var(--field);padding:8px}
+#gelCanvas{display:block}
+.credit{margin:22px 0 0;text-align:center;font-size:13px;color:var(--muted)}
+.readout{font-family:var(--mono);font-size:13px;margin:10px 0 0;line-height:1.6}
+.readout b{font-weight:500;color:var(--accent)}
+.warns{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.warn{background:var(--warnbg);color:var(--warn);border-radius:6px;padding:7px 10px;font-size:13.5px}
+.info{background:var(--soft);color:var(--muted);border-radius:6px;padding:7px 10px;font-size:13.5px}
+dl.cond{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:6px 14px;margin:0;font-size:14px}
+dl.cond dt{color:var(--muted)}
+dl.cond dd{margin:0;min-width:0;overflow-wrap:anywhere}
+dl.cond .mono{font-family:var(--mono);font-size:13px}
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px;font-family:var(--mono);font-variant-numeric:tabular-nums}
+th,td{text-align:right;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:top}
+th{font-family:var(--sans);font-weight:500;color:var(--muted)}
+td.l,th.l{text-align:left}
+td.wrap{white-space:normal;font-family:var(--sans)}
+td.spacer{color:var(--muted)}
+textarea#planText{width:100%;min-height:150px;font-family:var(--mono);font-size:12.5px;background:var(--field);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:8px;resize:vertical}
+.srcnote{font-size:12.5px;color:var(--muted);margin:10px 0 0;max-width:80ch}
+@media (prefers-reduced-motion: reduce){*{scroll-behavior:auto!important}}
+</style>
+
+<div class="app">
+  <h1>Gel Art Planner</h1>
+  <p class="sub">Draw a pattern or load an image. The planner turns it into lanes and rows, picks fragment sizes from the NEB Low Molecular Weight, Invitrogen 1 Kb Plus and Invitrogen Ultra Low Range ladders, and predicts how the E-Gel will look.</p>
+
+  <div class="grid">
+    <div class="stack">
+      <section class="card" aria-labelledby="h-pattern">
+        <h2 id="h-pattern">Pattern</h2>
+        <div class="drop" id="drop">
+          <p>Drop an image here or choose one. Dark shapes on a light background work best.</p>
+          <input type="file" id="file" accept="image/*" aria-label="Choose an image">
+        </div>
+        <div class="f">
+          <label for="preset">Or start from an example</label>
+          <select id="preset">
+            <option value="sf">Letters SF (block)</option>
+            <option value="heart">Heart</option>
+            <option value="helix">DNA helix</option>
+          </select>
+        </div>
+        <div class="f">
+          <label for="lanes">Lanes (pattern width)</label>
+          <div class="rng"><input type="range" id="lanes" min="3" max="11" step="1" value="9"><output id="lanesOut" for="lanes">9</output></div>
+        </div>
+        <div class="f">
+          <label for="rows">Rows (pattern height)</label>
+          <div class="rng"><input type="range" id="rows" min="3" max="12" step="1" value="12"><output id="rowsOut" for="rows">12</output></div>
+        </div>
+        <div id="imgOpts" hidden>
+          <h3>Image conversion</h3>
+          <div class="chk"><input type="checkbox" id="polDark" checked><label for="polDark">Dark pixels become bands</label></div>
+          <div class="chk"><input type="checkbox" id="crop" checked><label for="crop">Crop to the drawing</label></div>
+          <div class="chk"><input type="checkbox" id="autoThr" checked><label for="autoThr">Choose brightness cut-off automatically</label></div>
+          <div class="f">
+            <label for="thr">Brightness cut-off</label>
+            <div class="rng"><input type="range" id="thr" min="10" max="245" step="1" value="128"><output id="thrOut" for="thr">128</output></div>
+          </div>
+          <div class="f">
+            <label for="cov">Ink needed to fill a cell</label>
+            <div class="rng"><input type="range" id="cov" min="15" max="85" step="1" value="40"><output id="covOut" for="cov">40%</output></div>
+          </div>
+        </div>
+        <h3>Edit cells</h3>
+        <div class="cells" id="cells" role="group" aria-label="Pattern grid. Each button is one band position."></div>
+        <p class="hint">Click or drag to paint. Top row sits nearest the wells.</p>
+        <div class="btns">
+          <button type="button" id="bClear">Clear</button>
+          <button type="button" id="bInvert">Invert</button>
+          <button type="button" id="bMirror">Mirror left-right</button>
+          <button type="button" id="bFlip">Flip top-bottom</button>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="h-gel">
+        <h2 id="h-gel">Gel and preparation</h2>
+        <div class="row2">
+          <div class="f"><label for="gel">E-Gel agarose</label>
+            <select id="gel"><option value="1%">1%</option><option value="2%">2%</option><option value="4%">4%</option></select></div>
+          <div class="f"><label for="minSize">Smallest fragment</label>
+            <select id="minSize"><option value="100">100 bp</option><option value="50">50 bp (2% and 4%)</option><option value="35">35 bp (4% only)</option></select></div>
+        </div>
+        <div class="row2">
+          <div class="f"><label for="ngBand">Target per band (ng)</label><input type="number" id="ngBand" min="1" max="20" step="0.5" value="4"></div>
+          <div class="f"><label for="stock">Stock concentration (ng/µL)</label><input type="number" id="stock" min="0.5" max="50" step="0.5" value="4"></div>
+          <div class="f"><label for="finalVol">Volume per lane (µL)</label><input type="number" id="finalVol" min="5" max="30" step="1" value="20"></div>
+          <div class="f"><label for="recov">Gel-extraction recovery (%)</label><input type="number" id="recov" min="10" max="95" step="5" value="60"></div>
+          <div class="f"><label for="ladLoad">Ladder loaded on prep gel (µg)</label><input type="number" id="ladLoad" min="0.25" max="2" step="0.25" value="0.5"></div>
+          <div class="f"><label for="runTime">Run time (min)</label><input type="number" id="runTime" min="2" max="25" step="0.5" value="10"></div>
+          <div class="f"><label for="fastPos">Fastest band position at the default run (cm)</label><input type="number" id="fastPos" min="2" max="7" step="0.1" value="6"></div>
+        </div>
+        <p class="hint">For 1% the band positions come from the measured curve of a real run (the fastest-band setting is ignored) and are scaled by run time, taking the photographed run as 10 min. Run time scales how far every band travels. The default run is 10 min for 1% and 2% and 15 min for 4%, where the fastest band reaches the position above. Position and lane pitch (0.75 cm) and the 7.3 cm run length (about 9.7 lane pitches) come from a photo of a real E-Gel EX, so lanes are shown at true proportions. Position is assumed geometry for the prediction. Check them against a pilot run.</p>
+      </section>
+    </div>
+
+    <div class="stack">
+      <section class="card" aria-labelledby="h-pred">
+        <div class="row2"><h2 id="h-pred">Predicted gel</h2>
+          <div class="f"><label for="gelZoom">Gel size</label><select id="gelZoom"><option value="1" selected>Fit to page</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="2">200%</option></select></div></div>
+        <div class="gelwrap" id="gelwrap"><canvas id="gelCanvas" role="img" aria-label="Predicted E-Gel band pattern"></canvas></div>
+        <p class="readout" id="readout"></p>
+        <div class="warns" id="warns"></div>
+      </section>
+
+      <section class="card" aria-labelledby="h-cond">
+        <h2 id="h-cond">Gel conditions</h2>
+        <dl class="cond" id="cond"></dl>
+      </section>
+
+      <section class="card" aria-labelledby="h-frag">
+        <h2 id="h-frag">Fragments to make</h2>
+        <div class="tablewrap"><table id="fragTable"></table></div>
+        <p class="srcnote">Ladder band masses are the published values per 0.5 µg of ladder (NEB product page; Invitrogen TrackIt 1 Kb Plus FAQ for the matching 18 bands). Invitrogen does not publish masses for the Ultra Low Range bands. Check the band sizes against the sheet for your lot.</p>
+      </section>
+
+      <section class="card" aria-labelledby="h-lane">
+        <h2 id="h-lane">Lane loading plan</h2>
+        <div class="tablewrap"><table id="laneTable"></table></div>
+        <h3>Plan as text</h3>
+        <textarea id="planText" readonly aria-label="Plan as text"></textarea>
+        <div class="btns"><button type="button" class="primary" id="bCopy">Copy plan</button><span id="copyMsg" class="hint" role="status"></span></div>
+      </section>
+    </div>
+  </div>
+  <footer class="credit">Gel Art Planner. Idea, design and testing by Ali. Built with Claude (Anthropic). Predictions are estimates, so check them on a pilot gel.</footer>
+</div>
+
+<script>
+const RUN_CM = 7.3; /* usable run length: about 9.7 lane pitches, measured from an E-Gel EX photo */
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtBp = L => (L >= 1000 ? (+(L/1000).toFixed(2)) + ' kb' : L + ' bp');
+const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+/* ---------- ladder inventory (the only allowed sources) ---------- */
+const LADDERS = [
+  {id:'NEB LMW', name:'NEB Low Molecular Weight (N3233)', bands:{766:42,500:27,350:20,300:33,250:27,200:110,150:33,100:43,75:58,50:63,25:43}},
+  {id:'Kb Plus', name:'Invitrogen 1 Kb Plus (10787018)', bands:{15000:20,10000:20,8000:20,7000:20,6000:20,5000:20,4000:20,3000:20,2000:20,1500:70,1000:30,850:30,650:30,500:30,400:30,300:30,200:30,100:40}},
+  {id:'ULR', name:'Invitrogen Ultra Low Range (10597012)', bands:{300:null,200:null,150:null,100:null,75:null,50:null,35:null,20:null,10:null}}
+];
+
+/* ---------- migration tables: minutes to a fixed line, from the Power Snap guide ---------- */
+const GELS = {
+  '2%': {ref:9,  min:50,  max:1500, t:{50:8,75:8.5,100:9,125:9.5,150:10,200:11,250:11.5,300:12.5,350:13,400:13.5,450:14,500:14.5,600:15.5,700:16,800:16.5,900:17,1000:17.5,1200:18.5,1500:19.5}},
+  '1%': {measured:true, ref:13, min:100, max:7000, t:{100:13,300:14,500:15,750:16,1000:17,1500:19,2000:20.5,3000:23,5000:27.5}},
+  '4%': {model:true, min:35, max:300}
+};
+function curveOf(g){
+  const G = GELS[g], ks = Object.keys(G.t).map(Number).sort((a,b)=>a-b);
+  return {x: ks.map(Math.log10), v: ks.map(k => G.ref / G.t[k])};
+}
+function modelSpeed(L){
+  let m = 2.71 - 1.047 * Math.log10(L), k = 30;
+  m = -Math.log(Math.exp(-k*m) + Math.exp(-k*1.0)) / k;
+  m = Math.log(Math.exp(k*m) + Math.exp(k*0.10)) / k;
+  return Math.max(0.05, m);
+}
+/* 1% E-Gel EX: distance from the wells in lane pitches, measured from a photo of a GeneRuler 1 kb Plus run */
+const MEAS = [[75,8.37],[200,7.75],[300,7.21],[400,6.80],[500,6.48],[700,5.99],[1000,5.48],[1500,4.96],[2000,4.56],[3000,3.98],[4000,3.60],[5000,3.39],[7000,2.90]];
+function measuredLP(L){
+  const lx = Math.log10(L), n = MEAS.length, X = MEAS.map(m => Math.log10(m[0])), V = MEAS.map(m => m[1]);
+  if(lx <= X[0]) return V[0] + (V[1]-V[0])/(X[1]-X[0]) * (lx - X[0]);
+  if(lx >= X[n-1]) return V[n-1] + (V[n-1]-V[n-2])/(X[n-1]-X[n-2]) * (lx - X[n-1]);
+  let i = 1; while(X[i] < lx) i++; return V[i-1] + (V[i]-V[i-1]) * (lx - X[i-1])/(X[i]-X[i-1]);
+}
+function speed(g, L){
+  if(GELS[g].measured) return Math.max(0.3, measuredLP(L));
+  if(GELS[g].model) return modelSpeed(L);
+  const {x, v} = curveOf(g), lx = Math.log10(L), n = x.length;
+  let s;
+  if(lx <= x[0]) s = v[0] + (v[1]-v[0])/(x[1]-x[0]) * (lx - x[0]);
+  else if(lx >= x[n-1]) s = v[n-1] + (v[n-1]-v[n-3])/(x[n-1]-x[n-3]) * (lx - x[n-1]);
+  else { let i = 1; while(x[i] < lx) i++; s = v[i-1] + (v[i]-v[i-1]) * (lx - x[i-1])/(x[i]-x[i-1]); }
+  return Math.max(0.05, s);
+}
+
+/* ---------- state ---------- */
+const state = {L:9, R:12, grid:[], src:null};
+function emptyGrid(L, R){ return Array.from({length:R}, () => Array(L).fill(0)); }
+function fromRows(rows){ return rows.map(r => [...r].map(ch => ch === '#' ? 1 : 0)); }
+
+const PRESETS = {
+  sf: () => { const t=".###.####",v="#....#...",m=".##..###.",f="...#.#...",b="###..#...",e="#....#...";
+    return fromRows([t,t,v,v,v,m,m,f,f,f,b,b].map((x,i)=>i<2?x:i<5?"#....#...":i<7?(i==5?".##..###.":".##..#..."):i<10?"...#.#...":"###..#...")); },
+  heart: () => fromRows([".##...##.","#########","#########","#########",".#######.","..#####..","...###...","....#...."]),
+  helix: () => {
+    const L = 9, R = 9, g = emptyGrid(L, R);
+    for(let r = 0; r < R; r++){
+      const s = Math.sin(2*Math.PI*r/8), a = Math.round(4 + 3.4*s), b = Math.round(4 - 3.4*s);
+      g[r][a] = 1; g[r][b] = 1;
+      if(r % 2 === 0){ const lo = Math.min(a,b), hi = Math.max(a,b); for(let c = lo+1; c < hi; c++) if(Math.abs(c-4) <= 1) g[r][c] = 1; }
+    }
+    return g;
+  }
+};
+function applyPreset(name){
+  state.src = null; $('imgOpts').hidden = true;
+  const g = PRESETS[name]();
+  state.R = g.length; state.L = g[0].length; state.grid = g;
+  $('lanes').value = state.L; $('rows').value = state.R; syncOutputs(); rebuildGridUI(); schedule();
+}
+function syncOutputs(){ $('lanesOut').textContent = $('lanes').value; $('rowsOut').textContent = $('rows').value; $('thrOut').textContent = $('thr').value; $('covOut').textContent = $('cov').value + '%'; }
+
+/* ---------- grid editor ---------- */
+let painting = false, paintVal = 1;
+function rebuildGridUI(){
+  const box = $('cells'); box.style.setProperty('--cols', state.L); box.innerHTML = '';
+  for(let r = 0; r < state.R; r++) for(let c = 0; c < state.L; c++){
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'cell'; b.dataset.r = r; b.dataset.c = c;
+    b.setAttribute('aria-pressed', state.grid[r][c] ? 'true' : 'false');
+    b.setAttribute('aria-label', 'Lane ' + (c+1) + ', row ' + (r+1));
+    box.appendChild(b);
+  }
+}
+function setCell(r, c, v){
+  if(state.grid[r][c] === v) return;
+  state.grid[r][c] = v;
+  const b = $('cells').children[r * state.L + c]; if(b) b.setAttribute('aria-pressed', v ? 'true' : 'false');
+  schedule();
+}
+$('cells').addEventListener('pointerdown', e => {
+  const b = e.target.closest('.cell'); if(!b) return;
+  try{ b.releasePointerCapture(e.pointerId); }catch(_){}
+  const r = +b.dataset.r, c = +b.dataset.c;
+  paintVal = state.grid[r][c] ? 0 : 1; painting = true; setCell(r, c, paintVal); e.preventDefault();
+});
+$('cells').addEventListener('pointermove', e => {
+  if(!painting) return;
+  const el = document.elementFromPoint(e.clientX, e.clientY), b = el && el.closest ? el.closest('.cell') : null;
+  if(b && $('cells').contains(b)) setCell(+b.dataset.r, +b.dataset.c, paintVal);
+});
+window.addEventListener('pointerup', () => { painting = false; });
+window.addEventListener('pointercancel', () => { painting = false; });
+$('cells').addEventListener('keydown', e => { /* buttons already toggle with Enter/Space via click */ });
+$('cells').addEventListener('click', e => {
+  if(e.detail !== 0) return;             /* mouse/touch clicks are handled by pointer events */
+  const b = e.target.closest('.cell'); if(!b) return;
+  const r = +b.dataset.r, c = +b.dataset.c; setCell(r, c, state.grid[r][c] ? 0 : 1);
+});
+function mutate(fn){ state.src = null; $('imgOpts').hidden = true; fn(); rebuildGridUI(); schedule(); }
+$('bClear').onclick = () => mutate(() => { state.grid = emptyGrid(state.L, state.R); });
+$('bInvert').onclick = () => mutate(() => { state.grid = state.grid.map(r => r.map(v => v ? 0 : 1)); });
+$('bMirror').onclick = () => mutate(() => { state.grid = state.grid.map(r => r.slice().reverse()); });
+$('bFlip').onclick = () => mutate(() => { state.grid = state.grid.slice().reverse(); });
+
+/* ---------- size sliders ---------- */
+function resizeGrid(){
+  const nl = +$('lanes').value, nr = +$('rows').value;
+  if(state.src){ state.L = nl; state.R = nr; processImage(); return; }
+  const g = emptyGrid(nl, nr);
+  for(let r = 0; r < Math.min(nr, state.R); r++) for(let c = 0; c < Math.min(nl, state.L); c++) g[r][c] = state.grid[r][c];
+  state.L = nl; state.R = nr; state.grid = g; rebuildGridUI(); schedule();
+}
+$('lanes').addEventListener('input', () => { syncOutputs(); resizeGrid(); });
+$('rows').addEventListener('input', () => { syncOutputs(); resizeGrid(); });
+$('preset').addEventListener('change', () => applyPreset($('preset').value));
+
+/* ---------- image to grid ---------- */
+function loadFile(file){
+  if(!file || !/^image\//.test(file.type)) return;
+  const url = URL.createObjectURL(file), img = new Image();
+  img.onload = () => {
+    const sc = Math.min(1, 480 / Math.max(img.naturalWidth, img.naturalHeight));
+    const w = Math.max(1, Math.round(img.naturalWidth * sc)), h = Math.max(1, Math.round(img.naturalHeight * sc));
+    const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+    const cx = cv.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, w, h); cx.drawImage(img, 0, 0, w, h);
+    const d = cx.getImageData(0, 0, w, h).data, lum = new Float32Array(w * h);
+    for(let i = 0; i < w * h; i++) lum[i] = 0.299 * d[4*i] + 0.587 * d[4*i+1] + 0.114 * d[4*i+2];
+    state.src = {w, h, lum}; URL.revokeObjectURL(url);
+    $('imgOpts').hidden = false; state.L = +$('lanes').value; state.R = +$('rows').value; processImage();
+  };
+  img.onerror = () => { URL.revokeObjectURL(url); };
+  img.src = url;
+}
+$('file').addEventListener('change', e => loadFile(e.target.files[0]));
+const drop = $('drop');
+['dragenter','dragover'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave','drop'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => loadFile(e.dataTransfer.files[0]));
+
+function otsu(vals){
+  const h = new Array(256).fill(0); vals.forEach(v => h[Math.max(0, Math.min(255, Math.round(v)))]++);
+  const tot = vals.length; let sum = 0; for(let i = 0; i < 256; i++) sum += i * h[i];
+  let sB = 0, wB = 0, best = 0, thr = 128;
+  for(let t = 0; t < 256; t++){
+    wB += h[t]; if(!wB) continue; const wF = tot - wB; if(!wF) break;
+    sB += t * h[t]; const mB = sB / wB, mF = (sum - sB) / wF, v = wB * wF * (mB - mF) * (mB - mF);
+    if(v > best){ best = v; thr = t; }
+  }
+  return thr;
+}
+function processImage(){
+  const S = state.src; if(!S) return;
+  const {w, h, lum} = S, L = state.L, R = state.R;
+  let x0 = 0, y0 = 0, x1 = w - 1, y1 = h - 1;
+  if($('crop').checked){
+    const corners = [[0,0],[w-4,0],[0,h-4],[w-4,h-4]]; let bg = 0, n = 0;
+    corners.forEach(([cx,cy]) => { for(let y = cy; y < cy+4; y++) for(let x = cx; x < cx+4; x++){ bg += lum[y*w+x]; n++; } });
+    bg /= n; let minx = w, miny = h, maxx = -1, maxy = -1;
+    for(let y = 0; y < h; y++) for(let x = 0; x < w; x++) if(Math.abs(lum[y*w+x] - bg) > 40){ if(x<minx)minx=x; if(x>maxx)maxx=x; if(y<miny)miny=y; if(y>maxy)maxy=y; }
+    if(maxx >= 0){ x0 = Math.max(0, minx-1); x1 = Math.min(w-1, maxx+1); y0 = Math.max(0, miny-1); y1 = Math.min(h-1, maxy+1); }
+  }
+  const cw = x1 - x0 + 1, ch = y1 - y0 + 1;
+  let thr = +$('thr').value;
+  if($('autoThr').checked){
+    const vals = []; for(let y = y0; y <= y1; y++) for(let x = x0; x <= x1; x++) vals.push(lum[y*w+x]);
+    thr = otsu(vals); $('thr').value = Math.max(10, Math.min(245, thr)); syncOutputs();
+  }
+  $('thr').disabled = $('autoThr').checked;
+  const dark = $('polDark').checked, cov = +$('cov').value / 100, g = emptyGrid(L, R);
+  for(let r = 0; r < R; r++) for(let c = 0; c < L; c++){
+    const ax = x0 + Math.floor(c * cw / L), bx = x0 + Math.max(Math.floor((c+1) * cw / L), Math.floor(c * cw / L) + 1);
+    const ay = y0 + Math.floor(r * ch / R), by = y0 + Math.max(Math.floor((r+1) * ch / R), Math.floor(r * ch / R) + 1);
+    let ink = 0, tot = 0;
+    for(let y = ay; y < by; y++) for(let x = ax; x < bx; x++){ const v = lum[y*w+x]; if(dark ? v < thr : v > thr) ink++; tot++; }
+    g[r][c] = tot && ink / tot >= cov ? 1 : 0;
+  }
+  state.grid = g; rebuildGridUI(); schedule();
+}
+['polDark','crop','autoThr','thr','cov'].forEach(id => $(id).addEventListener('input', () => { syncOutputs(); processImage(); }));
+
+/* ---------- fragment selection ---------- */
+function buildPool(gel, minSize){
+  const G = GELS[gel], lo = Math.max(minSize, G.min), map = new Map();
+  LADDERS.forEach(lad => Object.entries(lad.bands).forEach(([s, ng]) => {
+    const size = +s; if(size < lo || size > G.max) return;
+    if(!map.has(size)) map.set(size, []);
+    map.get(size).push({id: lad.id, name: lad.name, ng});
+  }));
+  return [...map.entries()].map(([size, src]) => ({size, src, speed: speed(gel, size)})).sort((a, b) => a.speed - b.speed);
+}
+function pickSizes(pool, k){
+  const a = pool, n = a.length;
+  if(k >= n) return {sel: a.slice(), short: k > n};
+  if(k === 1) return {sel: [a[Math.floor(n/2)]], short: false};
+  const score = idx => { const sp = idx.map(i => a[i].speed), gaps = sp.slice(1).map((v, i) => v - sp[i]);
+    const mean = gaps.reduce((x, y) => x + y, 0) / gaps.length, vr = gaps.reduce((x, y) => x + (y-mean)*(y-mean), 0) / gaps.length;
+    return {min: Math.min(...gaps), vr}; };
+  /* A: greedy with the largest feasible minimum gap */
+  let lo = 0, hi = a[n-1].speed - a[0].speed;
+  const pickGreedy = d => { const idx = [0]; for(let i = 1; i < n && idx.length < k; i++) if(a[i].speed - a[idx[idx.length-1]].speed >= d) idx.push(i); return idx; };
+  for(let it = 0; it < 40; it++){ const mid = (lo + hi) / 2; if(pickGreedy(mid).length >= k) lo = mid; else hi = mid; }
+  const A = pickGreedy(lo);
+  /* B: even targets, best monotone assignment */
+  const T = j => a[0].speed + j * (a[n-1].speed - a[0].speed) / (k - 1);
+  const dp = Array.from({length: k}, () => Array(n).fill(Infinity)), bk = Array.from({length: k}, () => Array(n).fill(-1));
+  for(let i = 0; i < n; i++) dp[0][i] = Math.pow(a[i].speed - T(0), 2);
+  for(let j = 1; j < k; j++) for(let i = j; i < n; i++){
+    for(let p = j - 1; p < i; p++){ const c = dp[j-1][p] + Math.pow(a[i].speed - T(j), 2); if(c < dp[j][i]){ dp[j][i] = c; bk[j][i] = p; } }
+  }
+  let bi = 0; for(let i = 0; i < n; i++) if(dp[k-1][i] < dp[k-1][bi]) bi = i;
+  const B = []; for(let j = k - 1, i = bi; j >= 0; j--){ B.unshift(i); i = bk[j][i]; }
+  const sa = A.length === k ? score(A) : {min: -1, vr: 0}, sb = B.length === k && B.every(v => v >= 0) ? score(B) : {min: -1, vr: 0};
+  const useA = sa.min > sb.min + 1e-9 || (Math.abs(sa.min - sb.min) <= 1e-9 && sa.vr < sb.vr);
+  return {sel: (useA ? A : B).map(i => a[i]), short: false};
+}
+
+/* ---------- compute and render ---------- */
+let rafId = 0;
+function schedule(){ cancelAnimationFrame(rafId); rafId = requestAnimationFrame(compute); }
+let last = null;
+function compute(){
+  const gel = $('gel').value, G = GELS[gel];
+  const minSelEl = $('minSize');
+  const minSize = Math.max(+minSelEl.value, G.min);
+  const ngBand = Math.max(0.5, +$('ngBand').value || 4), stock = Math.max(0.1, +$('stock').value || 4);
+  const finalVol = Math.max(5, +$('finalVol').value || 20), recov = Math.min(0.99, Math.max(0.05, (+$('recov').value || 60) / 100));
+  const ladLoad = Math.max(0.1, +$('ladLoad').value || 0.5), fastPos = Math.max(1, +$('fastPos').value || 6);
+  const runTime = Math.max(1, +$('runTime').value || 10), refTime = gel === '4%' ? 15 : 10;
+  const {L, R, grid} = state;
+  const warns = [], infos = [];
+  const pool = buildPool(gel, minSize), pk = pickSizes(pool, R);
+  if(pk.short) warns.push(`The ladders offer only ${pool.length} distinct sizes in this range, but the pattern has ${R} rows. Rows beyond that reuse the closest sizes, so lower the row count or allow smaller fragments.`);
+  let sel = pk.sel.slice();
+  if(sel.length < R){ while(sel.length < R) sel.push(sel[sel.length-1]); }
+  /* row 0 is the top row, nearest the wells, so it takes the largest fragment */
+  const rows = sel.map((p, r) => ({r, size: p.size, src: p.src, speed: p.speed}));
+  rows.sort((x, y) => y.size - x.size).forEach((x, i) => { x.r = i; });
+  const D = GELS[gel].measured ? 0.75 * (runTime / refTime) : fastPos / Math.max(...rows.map(x => x.speed)) * (runTime / refTime);
+  rows.forEach(x => { x.d = x.speed * D; x.lanes = []; for(let c = 0; c < L; c++) if(grid[x.r] && grid[x.r][c]) x.lanes.push(c); });
+  const gaps = rows.slice(1).map((x, i) => (x.d - rows[i].d));
+  const minGap = gaps.length ? Math.min(...gaps) : 0, avgGap = gaps.length ? gaps.reduce((a, b) => a + b, 0) / gaps.length : 0;
+  const used = rows.filter(x => x.lanes.length);
+  if(!used.length) warns.push('The pattern is empty. Paint some cells or load an image.');
+  if(gaps.length && minGap < 0.25) warns.push(`Two rows sit only ${(minGap*10).toFixed(1)} mm apart. Bands closer than about 2.5 mm blur together, so lower the row count.`);
+  if(rows.some(x => x.lanes.length && x.d > RUN_CM - 0.2)) warns.push(`At ${runTime} min the fastest used band runs to the bottom of the gel (the gel shows ${RUN_CM} cm). Shorten the run time.`);
+  if(rows.length && Math.max(...rows.map(x => x.d)) < 3.5) infos.push(`At ${runTime} min the bands have barely moved, so the rows are crowded near the wells. Lengthen the run time.`);
+  const pitch = 0.75;
+  if(avgGap > 0){ const ratio = pitch / avgGap; if(ratio > 1.6 || ratio < 0.625) infos.push(`Predicted pixel shape: lanes are ${(pitch*10).toFixed(1)} mm apart, rows ${(avgGap*10).toFixed(1)} mm. The image will look ${ratio > 1 ? 'squashed vertically' : 'stretched vertically'} by about ${(ratio > 1 ? ratio : 1/ratio).toFixed(1)}x.`); }
+  if(+minSelEl.value < G.min) infos.push(`The ${gel} E-Gel range starts at ${G.min} bp, so the smallest fragment was set to ${G.min} bp.`);
+  if(G.model) infos.push('The 4% spacing comes from an estimated mobility model, not a Thermo table, and the top size is capped at 300 bp where 4% gels start to compress. Check it on a pilot gel.');
+  const laneInfo = [];
+  const startWell = Math.floor((11 - L) / 2);
+  for(let c = 0; c < L; c++){
+    const items = rows.filter(x => grid[x.r] && grid[x.r][c]);
+    const vol = items.length * (ngBand / stock), ng = items.length * ngBand;
+    laneInfo.push({well: startWell + c + 1, c, items, vol, ng, water: Math.max(0, finalVol - vol)});
+    if(ng > 50) warns.push(`Well ${startWell + c + 1} carries ${ng.toFixed(0)} ng of DNA. E-Gel EX lanes are rated to about 50 ng with several bands, so lower the target per band.`);
+    if(vol > finalVol) warns.push(`Well ${startWell + c + 1} needs ${vol.toFixed(1)} µL of fragments, more than the ${finalVol} µL lane volume. Raise the stock concentration.`);
+  }
+  const uniq = [...new Set(warns)];
+  last = {gel, rows, L, R, D, minGap, avgGap, laneInfo, startWell, ngBand, stock, finalVol, recov, ladLoad, minSize, runTime, grid: grid.map(r => r.slice()), warns: uniq, infos};
+  renderGel(); renderWarn(); renderCond(); renderFrag(); renderLane();
+}
+
+function renderGel(){
+  const S = last, wrapW = Math.max(300, $('gelwrap').clientWidth - 18);
+  const wells = 11, pitch = 0.75, left = 14, right = 78, top = 26, bottom = 14;
+  const zoom = +$('gelZoom').value || 1, fitScale = Math.max(30, Math.min(110, (wrapW - left - right) / (wells * pitch)));
+  const scale = fitScale * zoom;
+  const gw = wells * pitch * scale, runCm = RUN_CM, gh = runCm * scale;
+  const cw = Math.round(left + gw + right), ch = Math.round(top + gh + bottom);
+  const c = $('gelCanvas'), dpr = window.devicePixelRatio || 1;
+  c.width = Math.round(cw * dpr); c.height = Math.round(ch * dpr); c.style.width = cw + 'px'; c.style.height = ch + 'px';
+  const ctx = c.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, cw, ch);
+  const ink = cssVar('--ink'), muted = cssVar('--muted');
+  ctx.fillStyle = '#0a0d0c'; ctx.beginPath(); if(ctx.roundRect) ctx.roundRect(left, top, gw, gh, 6); else ctx.rect(left, top, gw, gh); ctx.fill();
+  const wellH = 0.3 * scale, y0 = top + 0.42 * scale;
+  ctx.font = Math.round(11 + 3 * Math.min(zoom, 2) * fitScale / 100) + 'px "IBM Plex Mono", ui-monospace, monospace'; ctx.textAlign = 'center';
+  for(let w = 0; w < wells; w++){
+    const lx = left + w * pitch * scale + 0.1 * scale, lw = 0.55 * scale;
+    ctx.fillStyle = '#000'; ctx.fillRect(lx, top + 0.12 * scale, lw, wellH);
+    ctx.fillStyle = muted; ctx.fillText(String(w + 1), lx + lw / 2, top - 8);
+  }
+  const sigma = 0.07, gain = 1.7 * (S.ngBand / 4);
+  S.laneInfo.forEach(li => {
+    const lx = left + (li.well - 1) * pitch * scale + 0.1 * scale, lw = 0.55 * scale;
+    const pts = li.items; if(!pts.length) return;
+    for(let y = Math.floor(y0); y < top + gh; y++){
+      const cm = (y - y0) / scale; let v = 0;
+      for(const p of pts){ const z = (cm - p.d) / sigma; if(z > -5 && z < 5) v += Math.exp(-0.5 * z * z); }
+      const I = 1 - Math.exp(-gain * v); if(I < 0.01) continue;
+      ctx.fillStyle = `rgba(125,255,156,${I * 0.2})`; ctx.fillRect(lx - 2, y, lw + 4, 1);
+      ctx.fillStyle = `rgba(125,255,156,${I * 0.95})`; ctx.fillRect(lx, y, lw, 1);
+    }
+  });
+  ctx.textAlign = 'left'; let lastY = -99;
+  S.rows.forEach(rw => {
+    const y = y0 + rw.d * scale;
+    ctx.strokeStyle = muted; ctx.beginPath(); ctx.moveTo(left + gw, Math.round(y) + 0.5); ctx.lineTo(left + gw + 6, Math.round(y) + 0.5); ctx.stroke();
+    if(y - lastY >= 12){ ctx.fillStyle = rw.lanes.length ? ink : muted; ctx.fillText(fmtBp(rw.size), left + gw + 10, y + 4); lastY = y; }
+  });
+  $('readout').innerHTML = `Pattern in wells <b>${S.startWell + 1}</b> to <b>${S.startWell + S.L}</b> of 11 &nbsp; ${S.R} rows from <b>${fmtBp(S.rows[S.rows.length-1].size)}</b> to <b>${fmtBp(S.rows[0].size)}</b><br>Row spacing: smallest <b>${(S.minGap*10).toFixed(1)}</b> mm, average <b>${(S.avgGap*10).toFixed(1)}</b> mm`;
+}
+function renderWarn(){
+  $('warns').innerHTML = last.warns.map(t => `<div class="warn">${esc(t)}</div>`).join('') + last.infos.map(t => `<div class="info">${esc(t)}</div>`).join('');
+}
+function renderCond(){
+  const S = last, G = GELS[S.gel], sizes = S.rows.filter(x => x.lanes.length).map(x => fmtBp(x.size)).join(', ');
+  const ladSet = new Set(); S.rows.filter(x => x.lanes.length).forEach(x => ladSet.add(pickSource(x).id));
+  const names = LADDERS.filter(l => ladSet.has(l.id)).map(l => l.name).join('; ');
+  const rowsH = [
+    ['Gel', `E-Gel EX ${S.gel} agarose, 11 wells`],
+    ['Run', S.gel === '4%' ? 'Power Snap EX 4% program, about 15 min by default and 20 min at most.' : 'Power Snap EX 1–2% program, about 10 min by default and 15 min at most.'],
+    ['Run time in prediction', `${S.runTime} min`],
+    ['Wells', `Load ${S.finalVol} µL per lane. Pattern uses wells ${S.startWell + 1} to ${S.startWell + S.L}. Fill other wells with water.`],
+    ['DNA per lane', `${S.ngBand} ng per band, about 50 ng at most per lane`],
+    ['Sizes used', `<span class="mono">${esc(sizes || 'none')}</span>`],
+    ['Size window', `${fmtBp(Math.max(S.minSize, G.min))} to ${fmtBp(G.max)} ${G.model ? '(estimated model, not a Thermo table)' : '(table range of this gel)'}`],
+    ['Ladders used', esc(names || 'none')]
+  ];
+  $('cond').innerHTML = rowsH.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
+}
+function pickSource(row){
+  const withMass = row.src.filter(s => s.ng != null).sort((a, b) => b.ng - a.ng);
+  return withMass[0] || row.src[0];
+}
+function renderFrag(){
+  const S = last;
+  let h = '<thead><tr><th class="l">Row</th><th>Size</th><th class="l">Cut from</th><th>Lanes</th><th>ng needed</th><th>Stock µL</th><th>Ladder lanes to cut</th></tr></thead><tbody>';
+  S.rows.forEach(rw => {
+    const best = pickSource(rw), others = rw.src.filter(s => s !== best);
+    const srcTxt = `${esc(best.id)}${best.ng != null ? ' (' + best.ng + ' ng)' : ' (mass not published)'}${others.length ? ' or ' + others.map(o => esc(o.id) + (o.ng != null ? ' (' + o.ng + ' ng)' : '')).join(', ') : ''}`;
+    if(!rw.lanes.length){ h += `<tr><td class="l spacer">${rw.r + 1}</td><td class="spacer">${fmtBp(rw.size)}</td><td class="l wrap spacer" colspan="5">Empty row, nothing to make</td></tr>`; return; }
+    const need = rw.lanes.length * S.ngBand * 1.2, vol = need / S.stock;
+    const per = best.ng != null ? best.ng * (S.ladLoad / 0.5) * S.recov : null;
+    const lanesCut = per ? Math.ceil(need / per) : null;
+    h += `<tr><td class="l">${rw.r + 1}</td><td>${fmtBp(rw.size)}</td><td class="l wrap">${srcTxt}</td><td>${rw.lanes.length}</td><td>${need.toFixed(0)}</td><td>${Math.max(2, Math.ceil(vol))}</td><td>${lanesCut != null ? lanesCut : 'unknown'}</td></tr>`;
+  });
+  $('fragTable').innerHTML = h + '</tbody>';
+}
+function renderLane(){
+  const S = last;
+  let h = '<thead><tr><th class="l">Well</th><th class="l">Fragments, top to bottom</th><th>µL each</th><th>DNA (ng)</th><th>Water (µL)</th></tr></thead><tbody>';
+  const byWell = {}; S.laneInfo.forEach(li => byWell[li.well] = li);
+  for(let w = 1; w <= 11; w++){
+    const li = byWell[w];
+    if(!li){ h += `<tr><td class="l spacer">${w}</td><td class="l wrap spacer" colspan="4">Not used. Load ${S.finalVol} µL of water.</td></tr>`; continue; }
+    if(!li.items.length){ h += `<tr><td class="l spacer">${w}</td><td class="l wrap spacer" colspan="4">Blank lane in the pattern. Load ${S.finalVol} µL of water.</td></tr>`; continue; }
+    h += `<tr><td class="l">${w}</td><td class="l wrap">${esc(li.items.map(x => x.size).join(', '))} bp</td><td>${(S.ngBand / S.stock).toFixed(2)}</td><td>${li.ng.toFixed(0)}</td><td>${li.water.toFixed(1)}</td></tr>`;
+  }
+  $('laneTable').innerHTML = h + '</tbody>';
+  const lines = [`Gel Art Planner plan`, `E-Gel EX ${S.gel}, 11 wells, ${S.finalVol} µL per lane`, `Fragments (elute or dilute each to ${S.stock} ng/µL):`];
+  S.rows.filter(x => x.lanes.length).forEach(x => { const b = pickSource(x); lines.push(`  row ${x.r+1}: ${x.size} bp from ${b.id}, used in ${x.lanes.length} lane(s)`); });
+  lines.push('Lanes:');
+  for(let w = 1; w <= 11; w++){ const li = byWell[w];
+    lines.push(!li || !li.items.length ? `  well ${w}: water` : `  well ${w}: ${li.items.map(x => x.size + ' bp').join(' + ')}, ${(S.ngBand / S.stock).toFixed(2)} µL each, water to ${S.finalVol} µL`); }
+  $('planText').value = lines.join('\n');
+}
+$('bCopy').addEventListener('click', async () => {
+  const ta = $('planText'), msg = $('copyMsg');
+  try{ await navigator.clipboard.writeText(ta.value); msg.textContent = 'Copied.'; }
+  catch(_){ ta.focus(); ta.select(); msg.textContent = 'Text selected. Press copy on your keyboard.'; }
+  setTimeout(() => { msg.textContent = ''; }, 3500);
+});
+
+/* ---------- wiring ---------- */
+['gel','minSize','ngBand','stock','finalVol','recov','ladLoad','fastPos','runTime','gelZoom'].forEach(id => {
+  $(id).addEventListener('input', schedule); $(id).addEventListener('change', schedule);
+});
+function onGelChange(){
+  const g = $('gel').value, ms = $('minSize'), o50 = ms.querySelector('option[value="50"]'), o35 = ms.querySelector('option[value="35"]');
+  o50.disabled = g === '1%'; o35.disabled = g !== '4%';
+  ms.value = g === '4%' ? '50' : '100';
+  $('runTime').value = g === '4%' ? 15 : 10;
+}
+$('gel').addEventListener('change', onGelChange);
+let rz = 0; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if(last) renderGel(); }, 120); });
+if(window.matchMedia) window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if(last) renderGel(); });
+
+onGelChange(); syncOutputs(); applyPreset('sf');
+</script>
